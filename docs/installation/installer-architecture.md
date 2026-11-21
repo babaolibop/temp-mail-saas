@@ -1,0 +1,25 @@
+# Installer architecture
+
+The installation entry point is `http://127.0.0.1:8000/install` during local development. Production setup must be deliberately enabled and operator-gated before routes are reachable. Use an operator access boundary outside public registration, such as a protected hosting location or an out-of-band setup credential. Enforce it on every setup request, including replays and direct URLs.
+
+## State, persistence, and routes
+
+Keep authoritative progress in private, persistent storage through the Installer module. A browser session can bind a setup attempt to the authorized operator. Use a file-backed installer session, file locks and a persistent private path independent of the product database and releases. Provision an application key through the deployment bootstrap before session-dependent setup flows. Keep the initial requirements rendering free of database-backed middleware and support safe remediation when runtime prerequisites prevent session initialization. All setup writes require CSRF protection, server-side prerequisites, and the operator gate.
+
+| Phase | Proposed routes | State transition and responsibilities |
+| --- | --- | --- |
+| INSTALL 01/04 — Foundation | GET `/install` | Inspect the implicit `unconfigured` state and compute current requirements without persisting anything. Register the Installer module, render status and remediation, and check the durable marker before serving. |
+| INSTALL 02/04 — Database | GET and POST `/install/database` | With requirements satisfied, validate input and test the connection. Securely persist confirmed settings and advance `unconfigured → database-configured`. Failed tests leave state unchanged. A successful retest before provisioning may replace settings. |
+| INSTALL 03/04 — Administrator | GET and POST `/install/administrator`, GET `/install/review` | Recheck configuration, serialize migration and provisioning operations, and advance `database-configured → administrator-provisioned` after durable success. Review shows only nonsecret setup data. |
+| INSTALL 04/04 — Completion | POST `/install/complete`, GET `/install/complete` | Verify provisioned state and write the durable marker atomically. Advance `administrator-provisioned → installed`. Return a redirect to a read-only completion view available only to the completing session for a short interval. |
+
+Use POST/redirect/GET on successful writes. Premature GET requests return to the earliest allowed step for an authorized operator. Out-of-order POST requests reject without side effects. Once installed, deny all setup entry and mutation routes. The narrowly scoped completion feedback route exposes no setup controls or secrets. An unreadable or invalid marker fails closed. File locks serialize requests on the supported single-host topology. State storage and marker location must survive deploys.
+
+## Acceptance by phase
+
+1. Foundation — Report PHP 8.5 and required platform extensions from the installed dependency baseline and runtime needs. Report write readiness for Laravel storage and bootstrap cache by logical label. Defer database driver checks to database selection. Missing prerequisites show actionable, sanitized feedback. GET uses no database, config writes, migrations, or incomplete navigation. Test good and failing requirements, installed denial, and the accessible three-theme view.
+2. Database — Start with proposed MySQL/MariaDB via PDO MySQL. Check driver availability, structure of host/port/database/user inputs, bounded connection time, and approved host policy. Require the operator to re-enter secrets after failure. Persist credentials only server-side through an allowlisted configuration writer with safe serialization, restrictive permissions, atomic replacement, and a defined cache refresh path. Honor managed environment overrides and fail when local changes cannot take effect. Test invalid input, denied hosts, failed connections, successful re-entry, and rollback or safe resume after interruption.
+3. Administrator — Use migration history to resume applied work. Serialize setup, use database constraints and a durable setup operation identity to prevent duplicate provisioning, and use Laravel password hashing. Keep recoverable migration failures visible to the operator with sanitized messages. Test interruption before and after provisioning, replay, existing-account conflicts, and redacted review output.
+4. Completion — Verify database and provisioning checkpoints, commit the marker as the final authority, and invalidate write access immediately. If interrupted before marker creation, require authorized recovery against persisted checkpoints. If interrupted afterward, block re-entry. Document recovery through authorized hosting access and verified backups. Test completion, reload, direct and repeated requests, competing attempts, and an installed restart with a fresh session.
+
+See [installer UX](installer-ux.md) and [security architecture](../security/security-architecture.md).

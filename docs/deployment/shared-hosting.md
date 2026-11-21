@@ -1,0 +1,9 @@
+# Shared-hosting deployment
+
+Verify PHP 8.5 in the web SAPI and CLI, installed package platform requirements, and PDO MySQL for the selected shared-hosting database. Supply production Composer dependencies and built Vite assets from a suitable build environment. Hosting runs PHP and serves assets with its document root at `public/`. Keep environment, storage, Composer sources, and install-state files outside public access. Check write permissions for storage and bootstrap cache using the production user and restrict other access.
+
+Before first setup verify HTTPS, application key provisioning, persistent private storage, database credentials, and the operator gate. Keep setup disabled publicly until operator access is configured. Preserve the durable installer marker and secret configuration across release switches. Keep application debug output off in production.
+
+For scheduling, verify the host can invoke Laravel scheduling from cron at the needed cadence with overlap protection. Prefer bounded worker invocations with explicit time and job limits when persistent workers are unavailable. Monitor lag and failed jobs. Scale or change hosting if these limits cannot meet intake or purge needs. Use an external SMTP gateway or provider with verified delivery to Laravel, and verify DNS and webhook reachability independently of the web host.
+
+For upgrades, back up the database, encrypted configuration as appropriate, private objects, and installer state. Prepare compatible code and assets, review migrations, deploy with guarded migration and cache steps, and smoke-test the health route, application and asset loading, and lock preservation. Keep a rollback plan tied to data compatibility and verified restores. Avoid restoring a database or marker independently when their installation state would diverge.
